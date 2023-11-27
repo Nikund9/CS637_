@@ -1,0 +1,175 @@
+import time
+import random
+import matplotlib.pyplot as plt
+
+# helper functions for minimum time calculation
+
+x_range = (0, 50)
+y_range = (0, 50)
+
+random.seed(0)
+ambulances = [
+    {
+        'id': 1,
+        'start_location': (random.random() * 50, random.random() * 50),
+        'pickup_locations': [],
+        'max_capacity': 4,
+        'current_capacity': 0,
+        'speed': 4,
+    },
+    {
+        'id': 2,
+        'start_location': (random.random() * 50, random.random() * 50),
+        'pickup_locations': [],
+        'max_capacity': 3,
+        'current_capacity': 0,
+        'speed': 3,
+    },
+    {
+        'id': 3,
+        'start_location': (random.random() * 50, random.random() * 50),
+        'pickup_locations': [],
+        'max_capacity': 5,
+        'current_capacity': 0,
+        'speed': 3,
+    },
+    {
+        'id': 4,
+        'start_location': (random.random() * 50, random.random() * 50),
+        'pickup_locations': [],
+        'max_capacity': 4,
+        'current_capacity': 0,
+        'speed': 4,
+    }
+]
+
+incidents = []
+for i in range(1, 10):
+    incidents.append(
+        {
+            'id': i,
+            'location': (random.random() * 30 + 10, random.random() * 30 + 10),
+            'report_time': time.time() + random.random() * 30 + 2,
+            'assigned': False,
+            'ambulance_id': None,
+        }
+    )
+incidents = sorted(incidents, key=lambda i: i['report_time'])
+
+
+def calc_time(loc1, loc2, speed):
+    return (((loc1[1] - loc2[1])**2 + (loc1[0] - loc2[0])**2)**0.5) / speed
+
+
+def check_ambulance(ambulance):
+    if (ambulance['max_capacity'] - ambulance['current_capacity'] == len(ambulance['pickup_locations'])):
+        return False
+    else:
+        return True
+
+
+def calc_min_time(report):
+    min_time = 99999
+    ambulance_id = 0
+    for ambulance in filter(check_ambulance, ambulances):
+        if (len(ambulance['pickup_locations'])):
+            if (ambulance['pickup_locations'][-1]['job_time'] - (time.time() - ambulance['pickup_locations'][-1]['assigned_at'])):
+                required_time = calc_time(
+                    report['location'], ambulance['pickup_locations'][-1]['location'], ambulance['speed'])
+            else:
+                required_time = calc_time(report['location'], ambulance['pickup_locations'][-1]['location'], ambulance['speed']) + \
+                    ambulance['pickup_locations'][-1]['job_time'] - \
+                    (time.time() -
+                     ambulance['pickup_locations'][-1]['assigned_at'])
+            if (required_time < min_time):
+                min_time = required_time
+                ambulance_id = ambulance['id']
+        else:
+            required_time = calc_time(
+                report['location'], ambulance['start_location'], ambulance['speed'])
+
+            if (required_time < min_time):
+                min_time = required_time
+                ambulance_id = ambulance['id']
+    return min_time, ambulance_id
+
+
+def assign_ambulance(incident):
+    min_time, ambulance_id = calc_min_time(incident)
+
+    ambulances[ambulance_id - 1]['pickup_locations'].append({
+        'report_id': incident['id'],
+        'assigned_at': time.time(),
+        'job_time': min_time,
+        'location': incident['location'],
+    })
+    ambulances[ambulance_id - 1]['current_capacity'] += 1
+    incident['assigned'] = True
+    incident['ambulance_id'] = ambulance_id
+
+    return min_time, ambulance_id
+
+
+#if _name_ == "_main_":
+    res_times = []
+    # plotting starting location of ambulances
+    plt.figure()
+    plt.grid(True)
+    plt.xlim((-1, 51))
+    plt.ylim((-1, 51))
+    plt.xlabel('X Coordinate')
+    plt.ylabel('Y Coordinate')
+    plt.title(f'Staring Ambulances Location')
+    
+    for ambulance in ambulances:
+        plt.plot(ambulance['start_location'][0], ambulance['start_location'][1], 'bo')
+    plt.show()
+    
+    # plotting incidents with aasigned ambulance
+    for incident in incidents:
+        if(incident['report_time'] - time.time() > 0):
+          time.sleep(incident['report_time'] - time.time())
+        print(incident)
+        res_time, ambulance_id = assign_ambulance(incident)
+        res_times.append(res_time)
+
+        plt.figure()
+        plt.grid(True)
+        plt.xlim((-1, 51))
+        plt.ylim((-1, 51))
+        plt.xlabel('X Coordinate')
+        plt.ylabel('Y Coordinate')
+        plt.title(
+            f'Ambulance Dispatch Simulation for Incident {incident["id"]}')
+        plt.plot(incident['location'][0], incident['location'][1], 'ro')
+
+        for ambulance in ambulances:
+            if (len(ambulance['pickup_locations'])):
+                for index, pickup in enumerate(ambulance['pickup_locations']):
+                    if(pickup['assigned_at'] + pickup['job_time'] < time.time()):
+                      if(index != len(ambulance['pickup_locations']) - 1):
+                        continue
+                      else:
+                        x = pickup['location'][0]
+                        y = pickup['location'][1]
+                        break
+                    else:
+                        if (index == 0):
+                            x = pickup['location'][0] - ambulance['speed']*(
+                                pickup['assigned_at'] + pickup['job_time'] - time.time())*((pickup['location'][0] - ambulance['start_location'][0])/((pickup['location'][0] - ambulance['start_location'][0])**2 + (pickup['location'][1] - ambulance['start_location'][1])**2)**0.5)
+                            y = pickup['location'][1] - ambulance['speed']*(
+                                pickup['assigned_at'] + pickup['job_time'] - time.time())*((pickup['location'][1] - ambulance['start_location'][1])/((pickup['location'][0] - ambulance['start_location'][0])**2 + (pickup['location'][1] - ambulance['start_location'][1])**2)**0.5)
+                        else:
+                            x = pickup['location'][0] - ambulance['speed']*(
+                                pickup['assigned_at'] + pickup['job_time'] - time.time())*((pickup['location'][0] - ambulance['pickup_locations'][index-1]['location'][0])/((pickup['location'][0] - ambulance['pickup_locations'][index-1]['location'][0])**2 + (pickup['location'][1] - ambulance['pickup_locations'][index-1]['location'][1])**2)**0.5)
+                            y = pickup['location'][1] - ambulance['speed']*(
+                                pickup['assigned_at'] + pickup['job_time'] - time.time())*((pickup['location'][1] - ambulance['pickup_locations'][index-1]['location'][1])/((pickup['location'][0] - ambulance['pickup_locations'][index-1]['location'][0])**2 + (pickup['location'][1] - ambulance['pickup_locations'][index-1]['location'][1])**2)**0.5)
+                        break
+            else:
+                x = ambulance['start_location'][0]
+                y = ambulance['start_location'][1]
+
+            plt.plot(x, y, 'bo' if ambulance['id'] != ambulance_id else 'go')
+        plt.show()
+
+    print(res_times)
